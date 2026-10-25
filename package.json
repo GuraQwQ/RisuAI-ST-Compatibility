@@ -1,6 +1,6 @@
 {
   "name": "risuai-st-compatibility",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -17,8 +17,8 @@
   },
   "dependencies": {
     "acorn": "^8.15.0",
+    "chevrotain": "^11.2.0",
     "droll": "^0.2.1",
-    "dompurify": "^3.3.2",
     "ejs": "^3.1.10",
     "fflate": "^0.8.3",
     "json5": "^2.2.3",
@@ -26,7 +26,6 @@
     "klona": "^2.0.6",
     "lodash": "^4.17.21",
     "mathjs": "^12.4.3",
-    "markdown-it": "^14.1.0",
     "moment": "^2.31.0",
     "seedrandom": "^3.0.5",
     "yaml": "^2.9.1"

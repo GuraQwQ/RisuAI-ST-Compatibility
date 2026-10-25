@@ -932,5 +932,6 @@ function evaluateMacros(content, env, postProcessFn) {
 
     return content;
 }
-return { evaluateMacros, getLocalVariable, getGlobalVariable };
+return { evaluateMacros, getLocalVariable, getGlobalVariable, setLocalVariable, setGlobalVariable,
+  addLocalVariable, addGlobalVariable, incrementLocalVariable, incrementGlobalVariable, decrementLocalVariable, decrementGlobalVariable };
 }

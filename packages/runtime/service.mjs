@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { parseCard, bytesFromBase64 } from '../core/card.mjs';
+import { parseAsset } from '../core/assets.mjs';
 import { installCardMigration } from '../core/migration.mjs';
 import { attachNativeModule } from './attach.mjs';
 import { evaluateInWorker } from './evaluate.mjs';
@@ -33,7 +34,8 @@ export async function startRuntimeService(cdp, { projectRoot = root, log = conso
   });
   await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
   const browser = (expression, id = contextId) => cdp.evaluate(expression, true, id);
-  const invoke = (method, payload, id) => browser(`globalThis.__stCompatibilityRuntime.${method}(${JSON.stringify(payload)})`, id);
+  // 先解除宿主响应式代理，保证数组经过 CDP 后仍然是数组。
+  const invoke = (method, payload, id) => browser(`Promise.resolve(globalThis.__stCompatibilityRuntime.${method}(${JSON.stringify(payload)})).then(value=>value===undefined?null:JSON.parse(JSON.stringify(value)))`, id);
   const migrate = async (payload, id) => {
     if (!['local', 'risu'].includes(payload.provider ?? 'local')) throw new Error('未知模型连接');
     const bytes = payload.base64 ? bytesFromBase64(payload.base64) : new TextEncoder().encode(payload.json);
@@ -71,6 +73,17 @@ export async function startRuntimeService(cdp, { projectRoot = root, log = conso
       return (await parseCard(bytes, request.payload.filename)).report;
     }
     if (request.method === 'import') return migrate(request.payload, id);
+    if (request.method === 'importAsset') {
+      const payload = request.payload;
+      const bytes = bytesFromBase64(payload.base64);
+      const asset = await parseAsset(bytes, payload.filename, payload.kind);
+      const directory = path.join(dataRoot, 'assets', asset.hash);
+      await writeAtomic(path.join(directory, 'raw.bin'), bytes);
+      await writeAtomic(path.join(directory, 'report.json'), { kind: asset.kind, name: asset.name, hash: asset.hash, ...asset.report });
+      const before = await browser('JSON.stringify(__stCompatibilityNative.db().characters.map(c=>({id:c.chaId,presetHash:c.stCompatibility?.presetHash,worldbookHashes:c.stCompatibility?.worldbookHashes,presetToggles:c.stCompatibility?.presetToggles})))', id);
+      await writeAtomic(path.join(dataRoot, 'backups', digest(before) + '.json'), before);
+      return invoke('installAsset', asset, id);
+    }
     if (request.method === 'retain') {
       const identity = digest(JSON.stringify([request.payload.characterId, request.payload.chatId]));
       await writeAtomic(path.join(dataRoot, 'conflicts', identity, `${Date.now()}-${randomUUID()}.json`), request.payload);

@@ -8,7 +8,8 @@ export async function historyState(snapshot, replay, end = snapshot.chat.message
   const swipe = snapshot.chat.stCompatibility?.greetingSwipe ?? Math.max(0, (snapshot.chat.fmIndex ?? -1) + 1);
   const variables = snapshot.chat.stCompatibility?.greetingVariables?.[swipe];
   let parent = await fingerprint({ card: snapshot.card, greeting: snapshot.greeting, user: snapshot.user,
-    settings: snapshot.settings, books: snapshot.books, preset: snapshot.preset, greetingVariables: variables });
+    settings: snapshot.settings, books: snapshot.books, preset: snapshot.preset, promptOrderId: snapshot.promptOrderId,
+    macroEngine: snapshot.macroEngine, presetRegex: snapshot.presetRegex, greetingVariables: variables });
   let state = variables ? {variables: structuredClone(variables)} : {};
   const updates = [];
   const states = [];

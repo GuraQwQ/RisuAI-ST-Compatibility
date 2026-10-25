@@ -59,12 +59,8 @@ export function inspectNativeModule(source) {
   const saveAsset = one(properties.filter(p => key(p.key) === 'saveAsset' && p.value.type === 'ArrowFunctionExpression')
     .flatMap(p => calls.filter(n => within(n, p) && n.callee.type === 'Identifier' && n.arguments.length === 1 && n.arguments[0].type === 'Identifier')
       .map(n => n.callee.name)), '资源存储');
-  const script = one(nodes.filter(n => n.type === 'ObjectExpression' &&
-    ['data', 'emoChanged'].every(k => n.properties.some(p => key(p.key) === k)))
-    .map(n => owner(n)).filter(n => n?.params.length >= 4).map(n => n.id.name), '原生脚本');
-  const scriptFn = functions.find(n => n.id.name === script);
-  const trigger = one(calls.filter(n => within(n, scriptFn) && text(n.arguments[1]) === 'display' &&
-    n.callee.type === 'Identifier' && n.arguments[2]?.type === 'ObjectExpression').map(n => n.callee.name), '触发器');
+  const renderer = one(functions.filter(fn => fn.async && calls.some(n => within(n, fn) && text(n.arguments[2]) === 'editdisplay')
+    && nodes.some(n => within(n, fn) && text(n) === 'notrim')).map(fn => fn.id.name), '原生 Markdown 渲染');
   const parser = one(properties.filter(p => key(p.key) === 'risuChatParser' && p.value.type === 'Identifier' &&
     functions.some(f => f.id.name === p.value.name && members.some(m => within(m, f) && key(m.property) === 'chatID')))
     .map(p => p.value.name), '显示宏');
@@ -79,25 +75,24 @@ export function inspectNativeModule(source) {
   const preview = one(nodes.filter(n => n.type === 'AssignmentExpression' && n.left.type === 'Identifier' &&
     n.right.type === 'MemberExpression' && key(n.right.property) === 'result' && previewIfs.some(p => within(n, p.consequent)))
     .map(n => n.left.name), '提示词预览');
-  const result = { database, ...selection, busy, send, request, tokenizer, blank, order, saveAsset, script, trigger, parser, executePlugin, pluginInstances, preview };
+  const result = { database, ...selection, busy, send, request, tokenizer, blank, order, saveAsset, renderer, parser, executePlugin, pluginInstances, preview };
   for (const [name, binding] of Object.entries(result)) if (!binding || !/^[$\w]+$/.test(binding)) throw new Error(`缺少原生接线：${name}`);
-  for (const name of [send, request, script, trigger, parser]) if (!functions.some(f => f.id.name === name)) throw new Error('原生入口不是可挂接的函数声明');
+  for (const name of [send, request, renderer, parser]) if (!functions.some(f => f.id.name === name)) throw new Error('原生入口不是可挂接的函数声明');
   return result;
 }
 
 export function nativeCaptureExpression(b) {
   return `(() => {
     if (globalThis.__stCompatibilityNative) return { reused: true };
-    const originals = { send: ${b.send}, request: ${b.request}, script: ${b.script}, trigger: ${b.trigger}, parser: ${b.parser} };
+    const originals = { send: ${b.send}, request: ${b.request} };
     const native = globalThis.__stCompatibilityNative = {
       db: () => ${b.database}.db, selected: () => ${b.get}(${b.selected}),
       select: index => ${b.selected}.set(index), busy: value => ${b.busy}.set(value), isBusy: () => ${b.get}(${b.busy}),
       blank: ${b.blank}, order: ${b.order}, request: ${b.request}, Tokenizer: ${b.tokenizer},
       executePlugin: ${b.executePlugin}, preview: value => { ${b.preview} = value; },
       pluginWindow: name => ${b.pluginInstances}.find(plugin => plugin.name === name)?.host?.iframe?.contentWindow,
-      parser: originals.parser, saveAsset: (bytes, hash, name) => ${b.saveAsset}(bytes, hash, name),
-      restore: () => { ${b.send} = originals.send; ${b.request} = originals.request; ${b.script} = originals.script;
-        ${b.trigger} = originals.trigger; ${b.parser} = originals.parser; delete globalThis.__stCompatibilityNative; }
+      parser: ${b.parser}, render: ${b.renderer}, saveAsset: (bytes, hash, name) => ${b.saveAsset}(bytes, hash, name),
+      restore: () => { ${b.send} = originals.send; ${b.request} = originals.request; delete globalThis.__stCompatibilityNative; }
     };
     ${b.send} = async (...args) => globalThis.__stCompatibilityRuntime
       ? globalThis.__stCompatibilityRuntime.send(originals.send, ...args) : originals.send(...args);
@@ -105,11 +100,6 @@ export function nativeCaptureExpression(b) {
       if (globalThis.__stCompatibilityRuntime?.isLocal()) throw new Error('当前角色使用本地固定回复，未调用模型');
       return originals.request(...args);
     };
-    ${b.script} = async (...args) => globalThis.__stCompatibilityRuntime?.active(args[0])
-      ? { data: args[1], emoChanged: false } : originals.script(...args);
-    ${b.trigger} = async (...args) => globalThis.__stCompatibilityRuntime?.active(args[0]) && args[1] === 'input'
-      ? null : originals.trigger(...args);
-    ${b.parser} = (...args) => globalThis.__stCompatibilityRuntime?.skipParser(args[1]) ? args[0] : originals.parser(...args);
     return { installed: true };
   })()`;
 }

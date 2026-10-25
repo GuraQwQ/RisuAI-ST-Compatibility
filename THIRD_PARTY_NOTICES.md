@@ -5,6 +5,7 @@
 | 组件 | 来源与版本 | 本地许可与来源记录 |
 | --- | --- | --- |
 | SillyTavern 算法抽取与适配 | [SillyTavern/SillyTavern](https://github.com/SillyTavern/SillyTavern/tree/7e8663cd9c184a550b37238218bdd32c6efc68e9)，提交 `7e8663cd9c184a550b37238218bdd32c6efc68e9` | [AGPL-3.0](packages/core/vendor/LICENSE-ST)、[文件与符号记录](packages/core/vendor/sources.json) |
+| SillyTavern 实验宏引擎与宏定义 | 同上固定提交；lexer、parser、walker、registry 及核心、变量、环境、时间、聊天宏 | [AGPL-3.0](packages/core/vendor/LICENSE-ST)、[原文件哈希](packages/core/vendor/modern-sources.json) |
 | MVU 变量算法抽取与适配 | [MagicalAstrogy/MagVarUpdate](https://github.com/MagicalAstrogy/MagVarUpdate/tree/54be11b09f21b1c4266e2d54b6f1ba9a3598db05)，提交 `54be11b09f21b1c4266e2d54b6f1ba9a3598db05` | [MIT](packages/core/vendor/LICENSE-MVU)、[文件记录](packages/core/vendor/mvu-sources.json) |
 | 原生加载器 | 本项目 `packages/loader` | [MIT](packages/loader/LICENSE) |
 

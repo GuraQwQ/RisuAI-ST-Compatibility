@@ -27,12 +27,13 @@ export async function evaluateCardOperation(message, { countTokens, countMessage
       snapshot.state = recovered.state;
     }
     session = await createCardSession(snapshot.card, snapshot.state, snapshot.user, snapshot.greeting, snapshot);
-    const runtime = createRuntime({ card: snapshot.card, countTokens,
+    const runtime = createRuntime({ card: snapshot.card, countTokens, globalRegex: snapshot.globalRegex, presetRegex: snapshot.presetRegex,
       user: snapshot.user, substitute: session.substitute });
     let result;
     if (operation === 'prompt') {
       result = await buildPrompt({ ...snapshot, state: session.runtimeState }, { countTokens, countMessages, substitute: session.substitute });
       result.variables = session.variables;
+      result.diagnostics = session.diagnostics;
       result.dependencies = session.dependencies;
       result.globals = session.runtimeState.globals;
       result.metadata.variables = session.runtimeState.metadata.variables;

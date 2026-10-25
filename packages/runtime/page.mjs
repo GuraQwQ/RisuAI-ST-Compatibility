@@ -1,19 +1,19 @@
-import MarkdownIt from 'markdown-it';
-import DOMPurify from 'dompurify';
 import { generateTransaction } from '../bridge/transaction.mjs';
 import { framePart } from '../bridge/frame.mjs';
 import { frameView } from '../bridge/view.mjs';
 import { applyFrontendMessageCommit, applyFrontendStorageCommit, applyFrontendVariableCommit } from '../bridge/frontend-commit.mjs';
+import { assetSnapshot, assetSettings, presetOrder } from '../core/assets.mjs';
 
 const pluginName = 'risu-st-compatibility';
 const clone = value => JSON.parse(JSON.stringify(value));
+const assetRevision = binding => JSON.stringify([binding.presetHash, binding.presetOrderId, binding.presetToggles,
+  binding.macroEngine, binding.worldbookHashes]);
 
 export function startRuntimePage() {
   if (globalThis.__stCompatibilityRuntime) return { reused: true };
   const native = globalThis.__stCompatibilityNative;
   if (!native) throw new Error('原生接口尚未接通');
   const waiting = new Map(), controllers = new Set(), mounts = new Map(), frames = new Map();
-  const markdown = new MarkdownIt({ html: true, breaks: true });
   const reports = new Map();
   let serial = 0, scheduled = false;
   const call = (method, payload, signal) => new Promise((resolve, reject) => {
@@ -46,8 +46,10 @@ export function startRuntimePage() {
     const db = native.db(), chat = target.chats[target.chatPage], binding = target.stCompatibility;
     return clone({ card: binding.card, chat, user: native.parser('{{user}}', { chara: target }),
       maxContext: db.maxContext ?? 8192, maxResponse: db.maxResponse ?? 0, settings: binding.settings ?? {},
-      persona: binding.persona ?? '', preset: binding.preset, books: binding.books,
-      globalRegex: binding.globalRegex, presetRegex: binding.presetRegex,
+      persona: binding.persona ?? '', ...assetSnapshot(binding, db.stCompatibilityAssets),
+      assetRevision: assetRevision(binding),
+      globalRegex: binding.globalRegex,
+      model: db.aiModel,
       localStorage: binding.localStorage ?? {}, scriptVariables: binding.scriptVariables ?? {},
       extensionVariables: binding.extensionVariables ?? {}, extensionId: 'st-compatibility',
       state: chat.stCompatibility?.state ?? [...chat.message].reverse().find(m => m.stCompatibility?.state)?.stCompatibility.state ?? {},
@@ -102,7 +104,7 @@ export function startRuntimePage() {
   const request = async (current, messages, signal) => {
     signal?.throwIfAborted();
     if (current.provider === 'local') return current.localResponse;
-    const result = await native.request({ formated: messages, bias: {}, currentChar: character(), useStreaming: false, blockPlugins: false }, 'model', signal);
+    const result = await native.request({ formated: messages, bias: {}, currentChar: character(), useStreaming: native.db().useStreaming, blockPlugins: false }, 'model', signal);
     if (result.type === 'fail') throw new Error(result.result);
     if (result.type === 'success') return result.result;
     if (result.type === 'multiline') return result.result.map(item => item[1]).join('\n');
@@ -170,6 +172,30 @@ export function startRuntimePage() {
   };
   const command = async (name, payload = {}) => {
     if (name === 'enable') return true;
+    if (name === 'assets') {
+      let binding = character()?.stCompatibility ?? {};
+      const assets = native.db().stCompatibilityAssets ?? {};
+      if (payload.presetHash !== undefined) binding = { ...binding, presetHash: payload.presetHash,
+        presetOrderId: payload.orderId, presetToggles: {}, macroEngine: assets[payload.presetHash]?.macroEngine ?? 'legacy' };
+      return assetSettings(binding, assets);
+    }
+    if (name === 'importAsset') return call('importAsset', payload);
+    if (name === 'assetSettings') {
+      const binding = character()?.stCompatibility;
+      if (!binding) throw new Error('请先选择已导入的兼容角色');
+      const assets = native.db().stCompatibilityAssets ?? {};
+      if (payload.presetHash && assets[payload.presetHash]?.kind !== 'preset') throw new Error('预设尚未导入');
+      if (!['modern', 'legacy'].includes(payload.macroEngine)) throw new Error('宏引擎无效');
+      if (!Array.isArray(payload.worldbookHashes) || payload.worldbookHashes.some(hash => assets[hash]?.kind !== 'worldbook')) throw new Error('世界书尚未导入');
+      const imported = assets[payload.presetHash];
+      const order = imported && presetOrder(imported.data, payload.orderId);
+      const toggles = payload.toggles ?? {};
+      if (Object.values(toggles).some(value => typeof value !== 'boolean') || Object.keys(toggles).some(id => !order?.order.some(item => item.identifier === id))) throw new Error('预设开关无效');
+      Object.assign(binding, { presetHash: payload.presetHash, presetOrderId: order?.character_id,
+        presetToggles: toggles, macroEngine: payload.macroEngine, worldbookHashes: [...new Set(payload.worldbookHashes)] });
+      schedule();
+      return assetSettings(binding, assets);
+    }
     if (name === 'current') {
       const binding = character()?.stCompatibility;
       return binding ? { provider: binding.provider, localResponse: binding.localResponse } : null;
@@ -193,7 +219,7 @@ export function startRuntimePage() {
     const reply = { channel: data.channel, requestId: data.requestId };
     try { reply.result = await command(data.command, data.payload); }
     catch (error) { reply.error = String(error.message); }
-    event.source.postMessage(reply, '*');
+    event.source.postMessage(clone(reply), '*');
   };
   const findContext = entry => {
     const target = native.db().characters.find(c => c.chaId === entry.characterId);
@@ -247,7 +273,7 @@ export function startRuntimePage() {
       } else if (method === 'diagnostic') { console.warn('[角色前端]', ...args); reply.result = true; }
       else throw new Error(`尚未支持前端接口：${method}`);
     } catch (error) { reply.error = String(error.message); }
-    entry.node.contentWindow?.postMessage(reply, '*');
+    entry.node.contentWindow?.postMessage(clone(reply), '*');
   };
   const cleanupMount = mount => {
     for (const part of mount.parts) frames.delete(part.id);
@@ -260,12 +286,13 @@ export function startRuntimePage() {
     const source = index < 0 ? chat.stCompatibility?.greetingMessage ?? (chat.fmIndex >= 0 ? target.alternateGreetings[chat.fmIndex] : target.firstMessage) : message?.data;
     if (source === undefined) return;
     const key = JSON.stringify([target.stCompatibility.hash, chat.id, index, source, chat.fmIndex, message?.stCompatibility,
-      chat.stCompatibility, target.stCompatibility.localStorage, chat.message.length]);
+      chat.stCompatibility, target.stCompatibility.localStorage, chat.message.length, assetRevision(target.stCompatibility)]);
     if (mount.key === key) return;
     mount.pending = true;
     try {
       const input = snapshot(target), result = await evaluate({ operation: 'display', snapshot: input, text: source, index, role: message?.role ?? 'char' });
-      if (!mount.body.isConnected || character()?.chaId !== target.chaId || target.chats[target.chatPage].id !== input.chat.id || revision(chat) !== revision(input.chat)) return;
+      if (!mount.body.isConnected || character()?.chaId !== target.chaId || target.chats[target.chatPage].id !== input.chat.id
+        || revision(chat) !== revision(input.chat) || assetRevision(target.stCompatibility) !== input.assetRevision) return;
       const next = [];
       for (const segment of result.text.split(/(```(?:html)?\s*\n[\s\S]*?```)/gi)) {
         if (!segment.trim()) continue;
@@ -283,7 +310,7 @@ export function startRuntimePage() {
           Object.assign(entry, { snapshot: input, result, view, revision: revision(chat) });
           entry.node.contentWindow?.postMessage({ channel: part.id, view }, '*');
           next.push(part);
-        } else next.push({ id: crypto.randomUUID(), html: DOMPurify.sanitize(markdown.render(segment)) });
+        } else next.push({ id: crypto.randomUUID(), html: await native.render(segment, target, 'normal', index) });
       }
       for (const old of mount.parts) if (!next.some(p => p.id === old.id)) { frames.get(old.id)?.node.remove(); frames.delete(old.id); }
       if (mount.problem) { mount.container.replaceChildren(); mount.problem = false; }
@@ -311,10 +338,10 @@ export function startRuntimePage() {
     if (!enabled) for (const controller of controllers) controller.abort();
     for (const [body, mount] of mounts) if (!body.isConnected || !enabled) { cleanupMount(mount); mounts.delete(body); }
     if (!enabled) return;
-    for (const body of document.querySelectorAll('.risu-chat[data-chat-index] .chattext')) {
+    for (const body of document.querySelectorAll('.risu-chat[data-chat-index] .chattext:not([data-st-compatibility])')) {
       let mount = mounts.get(body);
       if (!mount) {
-        const container = document.createElement('div'); container.className = body.className; container.classList.remove('chattext');
+        const container = document.createElement('div'); container.className = body.className; container.dataset.stCompatibility = 'renderer';
         container.style.fontSize = body.style.fontSize; container.style.lineHeight = body.style.lineHeight;
         mount = { body, container, display: body.style.display, parts: [], key: null, pending: false };
         body.style.display = 'none'; body.after(container); mounts.set(body, mount);
@@ -328,7 +355,6 @@ export function startRuntimePage() {
   window.addEventListener('message', pluginMessage); window.addEventListener('message', frameMessage);
   const runtime = globalThis.__stCompatibilityRuntime = { active, send, snapshot, command,
     isLocal: () => active() && character()?.stCompatibility?.provider === 'local',
-    skipParser: options => options?.chara != null && active(options.chara),
     resolve(id, result, error) {
       const pending = waiting.get(id); if (!pending) return;
       waiting.delete(id); clearTimeout(pending.timer);
@@ -336,6 +362,17 @@ export function startRuntimePage() {
     },
     count: payload => payload.messages ? new native.Tokenizer(4, 'name').tokenizeChats(Array.isArray(payload.messages) ? payload.messages : [payload.messages])
       : new native.Tokenizer(0, 'name').tokenizeChat({ role: 'system', content: payload.text }),
+    installAsset(asset) {
+      const db = native.db(); db.stCompatibilityAssets ??= {};
+      const reused = !!db.stCompatibilityAssets[asset.hash];
+      db.stCompatibilityAssets[asset.hash] ??= asset;
+      const binding = character()?.stCompatibility;
+      if (binding && asset.kind === 'preset' && binding.presetHash !== asset.hash) Object.assign(binding, {
+        presetHash: asset.hash, presetOrderId: asset.orderId, presetToggles: {}, macroEngine: asset.macroEngine });
+      if (binding && asset.kind === 'worldbook') binding.worldbookHashes = [...new Set([...binding.worldbookHashes ?? [], asset.hash])];
+      schedule();
+      return { reused, applied: !!binding, settings: assetSettings(binding ?? {}, db.stCompatibilityAssets) };
+    },
     publishCharacter(value) {
       const db = native.db(), existing = db.characters.find(c => c.stCompatibility?.hash === value.stCompatibility.hash);
       if (!existing) db.characters.push(value);
@@ -350,13 +387,14 @@ export function startRuntimePage() {
     },
     async installPlugin(script) {
       const db = native.db();
+      const versionOfPlugin = script.match(/^\/\/@version\s+(\S+)/m)?.[1];
       let plugin = db.plugins.find(p => p.name === pluginName);
       if (plugin && plugin.script !== script) {
-        plugin.script = script; plugin.version = '3.0'; plugin.versionOfPlugin = '0.2.0';
+        plugin.script = script; plugin.version = '3.0'; plugin.versionOfPlugin = versionOfPlugin;
         return { name: pluginName, reload: true };
       }
       if (!plugin) {
-        plugin = { name: pluginName, displayName: '酒馆运行层', version: '3.0', versionOfPlugin: '0.2.0',
+        plugin = { name: pluginName, displayName: '酒馆运行层', version: '3.0', versionOfPlugin,
           enabled: true, script, arguments: {}, realArg: {}, customLink: [] }; db.plugins.push(plugin);
       }
       if (plugin.enabled) await native.executePlugin(plugin);
