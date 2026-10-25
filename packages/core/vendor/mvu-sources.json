@@ -1,0 +1,56 @@
+{
+  "repository": "https://github.com/MagicalAstrogy/MagVarUpdate",
+  "commit": "54be11b09f21b1c4266e2d54b6f1ba9a3598db05",
+  "files": [
+    {
+      "file": "src/variable_def.ts",
+      "sha256": "8ba03ce3d02a2b21ff5af214f01823bbec88e6f2cc33cf831c34a53ecbf3b21e",
+      "exclude": []
+    },
+    {
+      "file": "src/function/update/structured_update.ts",
+      "sha256": "b1f5cfb53174fee0cf2ab4678fc8a7d9f430b6b9636c413ab8e498a368ac36f0",
+      "exclude": []
+    },
+    {
+      "file": "util/common.ts",
+      "sha256": "c9ef1ee81e1499e99b7943cba06e31f2f944e9bebbbd74dda8645b900cae7973",
+      "only": [
+        "literalYamlify",
+        "parseString",
+        "correctlyMerge"
+      ],
+      "exclude": []
+    },
+    {
+      "file": "src/util.ts",
+      "sha256": "35689f41f401478455eff417fa62fe4439aa1c6a6326b4fa3533a3633d8ade4b",
+      "only": [
+        "isJsonPatch"
+      ],
+      "exclude": []
+    },
+    {
+      "file": "src/function/schema.ts",
+      "sha256": "e4b17f6f3f682fdc0e6f996706fbe39eb75875471215dd1ea48e56f422d1ae84",
+      "exclude": []
+    },
+    {
+      "file": "src/function/update_variables.ts",
+      "sha256": "4e2e9a51ba33ea6e19a6f604466da67130a9b9d16ac0515b46df6849940395a3",
+      "only": null,
+      "exclude": [
+        "handleVariablesInMessage"
+      ]
+    },
+    {
+      "file": "src/function/initvar/variable_init.ts",
+      "sha256": "d2b730788fc74723f9df29ebd02085cd142e1f7289c3b25fb85cbebab51470bf",
+      "only": [
+        "loadInitVarData",
+        "createEmptyGameData"
+      ],
+      "exclude": []
+    }
+  ]
+}

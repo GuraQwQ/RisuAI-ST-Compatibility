@@ -1,0 +1,46 @@
+{
+  "name": "risuai-st-compatibility",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "node scripts/build-runtime.mjs",
+    "start": "node scripts/launch-runtime.mjs",
+    "search:complex-cards": "node scripts/search-complex-cards.mjs",
+    "clean": "node scripts/clean.mjs",
+    "install:runtime": "node scripts/install.mjs",
+    "package:release": "node scripts/package-release.mjs"
+  },
+  "dependencies": {
+    "acorn": "^8.15.0",
+    "droll": "^0.2.1",
+    "dompurify": "^3.3.2",
+    "ejs": "^3.1.10",
+    "fflate": "^0.8.3",
+    "json5": "^2.2.3",
+    "jsonrepair": "^3.15.0",
+    "klona": "^2.0.6",
+    "lodash": "^4.17.21",
+    "mathjs": "^12.4.3",
+    "markdown-it": "^14.1.0",
+    "moment": "^2.31.0",
+    "seedrandom": "^3.0.5",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "vite": "^8.0.3"
+  },
+  "description": "RisuAI Windows 桌面端的第三方 SillyTavern 兼容补偿层",
+  "homepage": "https://github.com/GuraQwQ/RisuAI-ST-Compatibility",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuraQwQ/RisuAI-ST-Compatibility.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GuraQwQ/RisuAI-ST-Compatibility/issues"
+  }
+}

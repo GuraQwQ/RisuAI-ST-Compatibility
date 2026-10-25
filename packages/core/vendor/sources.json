@@ -1,0 +1,206 @@
+{
+  "repository": "https://github.com/SillyTavern/SillyTavern",
+  "commit": "7e8663cd9c184a550b37238218bdd32c6efc68e9",
+  "files": [
+    {
+      "file": "public/scripts/utils.js",
+      "sha256": "2a2cfe240d5a84ce2e09ba053db6c0c71473b6406173f614f3521d89f50ada61",
+      "symbols": [
+        "regexFromString",
+        "escapeRegex",
+        "getStringHash",
+        "isDigitsOnly",
+        "convertValueType",
+        "isTrueBoolean",
+        "isFalseBoolean",
+        "parseTimestamp"
+      ]
+    },
+    {
+      "file": "public/scripts/variables.js",
+      "sha256": "92e1bfa793e6072c2daeecdbb6d7429faf990e251bfc5f8d97c0ba7088a1282a",
+      "symbols": [
+        "getLocalVariable",
+        "setLocalVariable",
+        "getGlobalVariable",
+        "setGlobalVariable",
+        "addLocalVariable",
+        "addGlobalVariable",
+        "incrementLocalVariable",
+        "incrementGlobalVariable",
+        "decrementLocalVariable",
+        "decrementGlobalVariable",
+        "getVariableMacros"
+      ]
+    },
+    {
+      "file": "public/scripts/macros.js",
+      "sha256": "1926c394e22a35827f594a4c4bfb044ed4c80dcc911680875991a880f8e53f11",
+      "symbols": [
+        "MacrosParser",
+        "getChatIdHash",
+        "getLastMessageId",
+        "getFirstIncludedMessageId",
+        "getFirstDisplayedMessageId",
+        "getLastMessage",
+        "getLastUserMessage",
+        "getLastCharMessage",
+        "getLastSwipeId",
+        "getCurrentSwipeId",
+        "getBannedWordsMacro",
+        "getTimeSinceLastMessage",
+        "getRandomReplaceMacro",
+        "getPickReplaceMacro",
+        "getDiceRollMacro",
+        "getTimeDiffMacro",
+        "getOutletPrompt",
+        "evaluateMacros"
+      ]
+    },
+    {
+      "file": "public/scripts/instruct-mode.js",
+      "sha256": "f54feef66a7b9e5b62878ab0189aefa60f8f8e178d2faa338501b4bb3228baae",
+      "symbols": [
+        "getInstructMacros"
+      ]
+    },
+    {
+      "file": "public/scripts/PromptManager.js",
+      "sha256": "b0054793b763d92b265f5f487645b68b4eca0867cb5ad6b5deb1034004b2c1cc",
+      "symbols": [
+        "DEFAULT_DEPTH",
+        "DEFAULT_ORDER",
+        "INJECTION_POSITION",
+        "Prompt",
+        "PromptCollection",
+        "chatCompletionDefaultPrompts",
+        "promptManagerDefaultPromptOrder"
+      ]
+    },
+    {
+      "file": "public/scripts/PromptManager.js",
+      "sha256": "b0054793b763d92b265f5f487645b68b4eca0867cb5ad6b5deb1034004b2c1cc",
+      "class": "PromptManager",
+      "methods": [
+        "getActiveGroupCharacters",
+        "getPromptOrderForCharacter",
+        "getPromptOrderEntry",
+        "getPromptById",
+        "isPromptDisabledForActiveCharacter",
+        "preparePrompt",
+        "isValidName",
+        "sanitizeName",
+        "getPromptCollection",
+        "shouldTrigger",
+        "log"
+      ]
+    },
+    {
+      "file": "public/scripts/openai.js",
+      "sha256": "0b77c30282825540265d5a09e681e5ccacf6760b05111ec880ffe237a9250604",
+      "symbols": [
+        "TokenHandler",
+        "IdentifierNotFoundError",
+        "TokenBudgetExceededError",
+        "InvalidCharacterNameError",
+        "MessageCollection",
+        "ChatCompletion",
+        "character_names_behavior",
+        "chat_completion_sources",
+        "tool_reasoning_modes",
+        "interleaved_reasoning_providers",
+        "parseExampleIntoIndividual",
+        "formatWorldInfo",
+        "populationInjectionPrompts",
+        "populateChatHistory",
+        "populateDialogueExamples",
+        "getPromptPosition",
+        "getPromptRole",
+        "populateChatCompletion",
+        "preparePromptsForChatCompletion",
+        "prepareOpenAIMessages"
+      ]
+    },
+    {
+      "file": "public/scripts/openai.js",
+      "sha256": "0b77c30282825540265d5a09e681e5ccacf6760b05111ec880ffe237a9250604",
+      "class": "Message",
+      "methods": [
+        "constructor",
+        "createAsync",
+        "setToolCalls",
+        "setName",
+        "fromPromptAsync",
+        "getTokens"
+      ]
+    },
+    {
+      "file": "public/script.js",
+      "sha256": "955c603d0bad84bac5a716f0818d85c2543e44d4c43878e0d63ef1e55ca91855",
+      "symbols": [
+        "extension_prompt_types",
+        "extension_prompt_roles",
+        "MAX_INJECTION_DEPTH",
+        "getExtensionPromptByName",
+        "getExtensionPromptMaxDepth",
+        "getExtensionPrompt",
+        "parseMesExamples"
+      ]
+    },
+    {
+      "file": "public/scripts/extensions/regex/engine.js",
+      "sha256": "091bb3402a12552cf1754d6e4d2b44df38d3553aa374539896c716e78905d350",
+      "symbols": [
+        "RegexProvider",
+        "regex_placement",
+        "substitute_find_regex",
+        "sanitizeRegexMacro",
+        "getRegexedString",
+        "runRegexScript",
+        "filterString"
+      ]
+    },
+    {
+      "file": "public/scripts/world-info.js",
+      "sha256": "111c7f47945839e75b021e09bdbb112a54f0a9b7857d2b95435f573efc7cd9a5",
+      "symbols": [
+        "world_info_insertion_strategy",
+        "world_info_logic",
+        "scan_state",
+        "world_info_depth",
+        "world_info_min_activations",
+        "world_info_min_activations_depth_max",
+        "world_info_budget",
+        "world_info_include_names",
+        "world_info_recursive",
+        "world_info_overflow_alert",
+        "world_info_case_sensitive",
+        "world_info_match_whole_words",
+        "world_info_use_group_scoring",
+        "world_info_character_strategy",
+        "world_info_budget_cap",
+        "world_info_max_recursion_steps",
+        "sortFn",
+        "DEFAULT_DEPTH",
+        "DEFAULT_WEIGHT",
+        "MAX_SCAN_DEPTH",
+        "KNOWN_DECORATORS",
+        "defaultGlobalScanData",
+        "WorldInfoBuffer",
+        "WorldInfoTimedEffects",
+        "world_info_position",
+        "wi_anchor_position",
+        "newWorldInfoEntryDefinition",
+        "newWorldInfoEntryTemplate",
+        "parseRegexFromString",
+        "getSortedEntries",
+        "parseDecorators",
+        "checkWorldInfo",
+        "filterGroupsByScoring",
+        "filterGroupsByTimedEffects",
+        "filterByInclusionGroups",
+        "convertCharacterBook"
+      ]
+    }
+  ]
+}
