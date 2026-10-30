@@ -2,7 +2,7 @@
 
 [RisuAI](https://github.com/kwaroran/Risuai) Windows 桌面端的第三方 SillyTavern 兼容补偿层。在原生聊天界面中运行带世界书、正则、变量和前端面板的酒馆角色卡。
 
-**当前为实验版，实机验证版本为 RisuAI 2026.10.220 / Windows x64。** 兼容范围见 [兼容说明](docs/compatibility.md)。
+**当前为实验版，最新实机验证版本为 RisuAI 2026.10.292 / Windows x64。** 兼容范围见 [兼容说明](docs/compatibility.md)。
 
 ## 工作方式
 
