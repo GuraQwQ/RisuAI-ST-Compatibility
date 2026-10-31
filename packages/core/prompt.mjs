@@ -1,22 +1,28 @@
 import { createRuntime } from './runtime.mjs';
 import { createPromptEngine } from './vendor/prompt.mjs';
+import { attachGenerationImages } from './generation.mjs';
 
 /** 接收宿主完整快照，在原生扫描、记忆、正则开始前构造一次请求。 */
 export async function buildPrompt(snapshot, { countTokens, countMessages, substitute, events, signal } = {}) {
   const { card, chat, user, settings, books, globalRegex, presetRegex } = snapshot;
   const data = card.data ?? card;
+  const templates = substitute?.templates;
+  await templates?.beforeGenerate();
   const extensionPrompts = structuredClone(snapshot.extensionPrompts ?? {});
   const runtime = createRuntime({ card, user, settings, books, globalRegex, presetRegex,
-    metadata: snapshot.state?.metadata, countTokens, substitute, events, extensionPrompts });
+    metadata: snapshot.state?.metadata, countTokens, substitute, events, extensionPrompts,
+    worldbookBindings: snapshot.worldbookBindings });
   const render = (text, options = {}) => runtime.substituteParams(text ?? '', options);
   signal?.throwIfAborted();
-  const history = chat.message.filter(message => !message.disabled && !message.isComment).map((message, index, all) => ({
-    role: message.role === 'char' ? 'assistant' : 'user',
-    content: runtime.getRegexedString(message.data, message.role === 'char' ? 2 : 1,
-      { isPrompt: true, depth: all.length - index - 1 }),
-  }));
-  history.unshift({ role: 'assistant', content: runtime.getRegexedString(snapshot.greeting ?? data.first_mes ?? '', 2,
-    { isPrompt: true, depth: history.length }) });
+  const filter = text => templates?.getFeatures().filter_message_enabled
+    ? text.replace(/<%(?![%])([\s\S]*?)(?<!%)%>/g, '') : text;
+  const history = chat.message.filter(message => !message.disabled && !message.isComment).map((message, index, all) => {
+    const role = message.stCompatibility?.role ?? (message.role === 'char' ? 'assistant' : message.role ?? 'user');
+    return { role, ...(snapshot.generation ? { stIdentifier: message.stIdentifier } : {}), content: filter(runtime.getRegexedString(message.data, role === 'user' ? 1 : 2,
+      { isPrompt: true, depth: all.length - index - 1 })) };
+  });
+  if (!chat.stCompatibility?.greetingMaterialized && (snapshot.greeting ?? data.first_mes)) history.unshift({ role: 'assistant',
+    content: filter(runtime.getRegexedString(snapshot.greeting ?? data.first_mes, 2, { isPrompt: true, depth: history.length })) });
   const depthPrompt = data.extensions?.depth_prompt;
   if (depthPrompt?.prompt) extensionPrompts.DEPTH_PROMPT = { value: depthPrompt.prompt, position: 1,
     depth: depthPrompt.depth ?? 4, role: ['system', 'user', 'assistant'].indexOf(depthPrompt.role ?? 'system'), scan: false };
@@ -27,7 +33,8 @@ export async function buildPrompt(snapshot, { countTokens, countMessages, substi
       characterDepthPrompt: data.extensions?.depth_prompt?.prompt ?? '', scenario: data.scenario ?? '',
       creatorNotes: data.creator_notes ?? '',
     });
-  for (const entry of world.WIDepthEntries) extensionPrompts[`customDepthWI_${entry.depth}_${entry.role}`] = {
+  const overrides = snapshot.generationOverrides ?? {};
+  for (const entry of overrides.chat_history?.with_depth_entries === false ? [] : world.WIDepthEntries) extensionPrompts[`customDepthWI_${entry.depth}_${entry.role}`] = {
     value: entry.entries.join('\n'), position: 1, depth: entry.depth, role: entry.role, scan: false,
   };
   for (const [name, entries] of Object.entries(world.outletEntries)) extensionPrompts[`customWIOutlet_${name}`] = {
@@ -44,6 +51,7 @@ export async function buildPrompt(snapshot, { countTokens, countMessages, substi
     return count;
   });
   const engine = createPromptEngine({ user, name: data.name, persona: snapshot.persona,
+    preserveIdentifiers: !!snapshot.generation, raw: !!snapshot.generation?.raw, images: snapshot.generationImages,
     preset: snapshot.preset, promptOrderId: snapshot.promptOrderId, powerUser: snapshot.powerUser,
     maxContext: snapshot.maxContext, maxResponse: snapshot.maxResponse, extension_prompts: extensionPrompts,
     substituteParams: render, countMessages: counter, emit: events,
@@ -56,13 +64,16 @@ export async function buildPrompt(snapshot, { countTokens, countMessages, substi
     ...world.EMEntries.filter(item => item.position === 1).flatMap(item => engine.parseMesExamples(item.content, false)),
   ];
   const result = await engine.build({ charDescription: data.description ?? '', charPersonality: data.personality ?? '',
-    scenario: data.scenario ?? '', worldInfoBefore: world.worldInfoBefore, worldInfoAfter: world.worldInfoAfter,
+    scenario: data.scenario ?? '', worldInfoBefore: overrides.world_info_before ?? world.worldInfoBefore,
+    worldInfoAfter: overrides.world_info_after ?? world.worldInfoAfter,
     systemPromptOverride: data.system_prompt || undefined, jailbreakPromptOverride: data.post_history_instructions || undefined,
     type: snapshot.operation ?? 'normal', messages: [...history].reverse(),
     messageExamples: exampleBlocks.map(block => engine.parseExampleIntoIndividual(render(block))),
     cyclePrompt: snapshot.operation === 'continue' ? history.at(-1)?.content : undefined,
   });
   signal?.throwIfAborted();
-  return { messages: result.messages, tokens: snapshot.maxContext - (snapshot.maxResponse ?? 0) - result.remaining,
+  const messages = templates ? await templates.processPrompt(result.messages) : result.messages;
+  return { messages, tokens: templates ? await counter(snapshot.generation ? attachGenerationImages(messages, snapshot) : messages)
+    : snapshot.maxContext - (snapshot.maxResponse ?? 0) - result.remaining,
     metadata: runtime.metadata, world: [...world.allActivatedEntries], trace: runtime.trace };
 }

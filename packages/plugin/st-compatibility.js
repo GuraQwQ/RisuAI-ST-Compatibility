@@ -1,7 +1,7 @@
 //@name risu-st-compatibility
 //@display-name 酒馆运行层
 //@api 3.0
-//@version 0.3.0
+//@version 0.4.0
 //@link https://github.com/GuraQwQ/RisuAI-ST-Compatibility 使用说明
 
 (async () => {

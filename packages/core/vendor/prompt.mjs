@@ -1,4 +1,4 @@
-// 从 SillyTavern 抽取并接入本项目上下文，修改日期 2026-10-25；来源与许可见 sources.json、LICENSE-ST。
+// 从 SillyTavern 抽取并接入本项目上下文，修改日期 2026-11-01；来源与许可见 sources.json、LICENSE-ST。
 // ST 原始编排、预算和插入代码；宿主能力由 context 显式传入。
 const defaultPreset = {"chat_completion_source":"openai","openai_model":"gpt-5.6-terra","claude_model":"claude-sonnet-5","openrouter_model":"OR_Website","openrouter_use_fallback":false,"openrouter_group_models":false,"openrouter_sort_models":"alphabetically","ai21_model":"jamba-large","mistralai_model":"mistral-large-latest","chutes_model":"deepseek-ai/DeepSeek-V3-0324","chutes_sort_models":"alphabetically","minimax_model":"MiniMax-M2.7","minimax_endpoint":"global","electronhub_model":"gpt-4o-mini","electronhub_sort_models":"alphabetically","electronhub_group_models":false,"custom_model":"","custom_url":"","custom_include_body":"","custom_exclude_body":"","custom_include_headers":"","google_model":"gemini-3.7-flash","vertexai_model":"gemini-3.7-flash","temperature":1,"frequency_penalty":0,"presence_penalty":0,"top_p":1,"top_k":0,"top_a":0,"min_p":0,"repetition_penalty":1,"openai_max_context":4095,"openai_max_tokens":300,"names_behavior":0,"send_if_empty":"","impersonation_prompt":"[Write your next reply from the point of view of {{user}}, using the chat history so far as a guideline for the writing style of {{user}}. Don't write as {{char}} or system. Don't describe actions of {{char}}.]","new_chat_prompt":"[Start a new Chat]","new_group_chat_prompt":"[Start a new group chat. Group members: {{group}}]","new_example_chat_prompt":"[Example Chat]","continue_nudge_prompt":"[Continue your last message without repeating its original content.]","bias_preset_selected":"Default (none)","reverse_proxy":"","proxy_password":"","max_context_unlocked":false,"wi_format":"{0}","scenario_format":"{{scenario}}","personality_format":"{{personality}}","group_nudge_prompt":"[Write the next reply only as {{char}}.]","stream_openai":true,"prompts":[{"name":"Main Prompt","system_prompt":true,"role":"system","content":"Write {{char}}'s next reply in a fictional chat between {{char}} and {{user}}.","identifier":"main"},{"name":"Auxiliary Prompt","system_prompt":true,"role":"system","content":"","identifier":"nsfw"},{"identifier":"dialogueExamples","name":"Chat Examples","system_prompt":true,"marker":true},{"name":"Post-History Instructions","system_prompt":true,"role":"system","content":"","identifier":"jailbreak"},{"identifier":"chatHistory","name":"Chat History","system_prompt":true,"marker":true},{"identifier":"worldInfoAfter","name":"World Info (after)","system_prompt":true,"marker":true},{"identifier":"worldInfoBefore","name":"World Info (before)","system_prompt":true,"marker":true},{"identifier":"enhanceDefinitions","role":"system","name":"Enhance Definitions","content":"If you have more knowledge of {{char}}, add to the character's lore and personality to enhance them but keep the Character Sheet's definitions absolute.","system_prompt":true,"marker":false},{"identifier":"charDescription","name":"Char Description","system_prompt":true,"marker":true},{"identifier":"charPersonality","name":"Char Personality","system_prompt":true,"marker":true},{"identifier":"scenario","name":"Scenario","system_prompt":true,"marker":true},{"identifier":"personaDescription","name":"Persona Description","system_prompt":true,"marker":true}],"prompt_order":[{"character_id":100000,"order":[{"identifier":"main","enabled":true},{"identifier":"worldInfoBefore","enabled":true},{"identifier":"charDescription","enabled":true},{"identifier":"charPersonality","enabled":true},{"identifier":"scenario","enabled":true},{"identifier":"enhanceDefinitions","enabled":false},{"identifier":"nsfw","enabled":true},{"identifier":"worldInfoAfter","enabled":true},{"identifier":"dialogueExamples","enabled":true},{"identifier":"chatHistory","enabled":true},{"identifier":"jailbreak","enabled":true}]},{"character_id":100001,"order":[{"identifier":"main","enabled":true},{"identifier":"worldInfoBefore","enabled":true},{"identifier":"personaDescription","enabled":true},{"identifier":"charDescription","enabled":true},{"identifier":"charPersonality","enabled":true},{"identifier":"scenario","enabled":true},{"identifier":"enhanceDefinitions","enabled":false},{"identifier":"nsfw","enabled":true},{"identifier":"worldInfoAfter","enabled":true},{"identifier":"dialogueExamples","enabled":true},{"identifier":"chatHistory","enabled":true},{"identifier":"jailbreak","enabled":true}]}],"show_external_models":false,"assistant_prefill":"","assistant_impersonation":"","use_sysprompt":false,"squash_system_messages":false,"media_inlining":true,"bypass_status_check":false,"continue_prefill":false,"continue_postfix":" ","seed":-1,"n":1};
 export function createPromptEngine(context) {
@@ -136,8 +136,9 @@ class Prompt {
      * @param {boolean} [param0.forbid_overrides] - Indicates if the prompt should not be overridden.
      * @param {boolean} [param0.extension] - Prompt is added by an extension.
      */
-    constructor({ identifier, role, content, name, system_prompt, position, injection_depth, injection_position, forbid_overrides, extension, injection_order, injection_trigger } = {}) {
+    constructor({ identifier, stIdentifier, role, content, name, system_prompt, position, injection_depth, injection_position, forbid_overrides, extension, injection_order, injection_trigger } = {}) {
         this.identifier = identifier;
+        if (context.preserveIdentifiers) this.stIdentifier = stIdentifier ?? identifier;
         this.role = role;
         this.content = content;
         this.name = name;
@@ -593,8 +594,13 @@ async setName(name) {
         this.name = name;
         this.tokens = await tokenHandler.countAsync({ role: this.role, content: this.content, name: this.name });
     }
-static fromPromptAsync(prompt) {
-        return Message.createAsync(prompt.role, prompt.content, prompt.identifier);
+static async fromPromptAsync(prompt) {
+        const message = await Message.createAsync(prompt.role, prompt.content, prompt.identifier);
+        if (context.preserveIdentifiers) message.stIdentifier = prompt.stIdentifier ?? prompt.identifier;
+        const image = context.images?.[message.stIdentifier];
+        if (image) message.tokens = await tokenHandler.countAsync({ role: message.role, content: message.content,
+            multimodals: (Array.isArray(image) ? image : [image]).map(data => ({ type: 'image', data })) });
+        return message;
     }
 getTokens() { return this.tokens; }
 }
@@ -1327,6 +1333,7 @@ async function preparePromptsForChatCompletion({ scenario, charPersonality, name
     // Merge system prompts with prompt manager prompts
     systemPrompts.forEach(prompt => {
         const collectionPrompt = prompts.get(prompt.identifier);
+        if (context.raw && !collectionPrompt && ['worldInfoBefore', 'worldInfoAfter', 'charDescription', 'charPersonality', 'scenario', 'personaDescription'].includes(prompt.identifier)) return;
 
         // Apply system prompt role/depth overrides if they set in the prompt manager
         if (collectionPrompt) {
@@ -1562,10 +1569,11 @@ class MessageCollection {
      */
     getChat() {
         return this.collection.reduce((acc, message) => {
-            if (message.content || message.tool_calls) {
+            if (message.content || message.tool_calls || context.images?.[message.stIdentifier]) {
                 acc.push({
                     role: message.role,
                     content: message.content,
+                    ...(context.preserveIdentifiers ? { stIdentifier: message.stIdentifier } : {}),
                     ...(message.name && { name: message.name }),
                     ...(message.tool_calls && { tool_calls: message.tool_calls }),
                     ...(message.role === 'tool' && { tool_call_id: message.identifier }),
@@ -1765,7 +1773,7 @@ class ChatCompletion {
         this.checkTokenBudget(message, message.identifier);
 
         const index = this.findMessageIndex(identifier);
-        if (message.content || message.tool_calls) {
+        if (message.content || message.tool_calls || context.images?.[message.stIdentifier]) {
             if ('start' === position) this.messages.collection[index].collection.unshift(message);
             else if ('end' === position) this.messages.collection[index].collection.push(message);
             else if (typeof position === 'number') this.messages.collection[index].collection.splice(position, 0, message);
@@ -1843,10 +1851,11 @@ class ChatCompletion {
         for (let item of this.messages.collection) {
             if (item instanceof MessageCollection) {
                 chat.push(...item.getChat());
-            } else if (item instanceof Message && (item.content || item.tool_calls)) {
+            } else if (item instanceof Message && (item.content || item.tool_calls || context.images?.[item.stIdentifier])) {
                 const message = {
                     role: item.role,
                     content: item.content,
+                    ...(context.preserveIdentifiers ? { stIdentifier: item.stIdentifier } : {}),
                     ...(item.name ? { name: item.name } : {}),
                     ...(item.tool_calls ? { tool_calls: item.tool_calls } : {}),
                     ...(item.role === 'tool' ? { tool_call_id: item.identifier } : {}),

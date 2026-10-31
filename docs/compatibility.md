@@ -11,13 +11,14 @@
 | ST 正则与宏 | 使用固定提交抽取的正则、默认宏与实验宏引擎；支持嵌套块宏、变量和字典读取，并提供对应的宿主上下文 |
 | 世界书与提示词 | 关键词、递归、分组、时效与位置等由抽取引擎处理；本地固定回复模式使用字符数估算预算，非模型 tokenizer |
 | MVU | 固定提交的变量初始化与更新算法、消息变量快照及回放；完整外部 MVU 扩展不在支持声明内 |
-| 前端面板 | 消息内 HTML 面板及本项目实现的聊天、变量、事件接口子集；接口见 `packages/core/frontend-api.mjs` |
+| 前端面板 | 消息内 HTML 面板、启用的脚本库及 `TavernHelper` 命名空间；聊天、变量、世界书、预设、角色、玩家角色、正则、文件和事件接口见 `packages/core/frontend-api.mjs` |
+| 提示词模板 | 异步 EJS、原版 helper 与变量算法、世界书 include、初始化、扫描与生成 loader、注入、永久正文和显示阶段；提供 `EjsTemplate` 执行环境 |
 | 原生操作 | 输入、编辑、重生成、候选切换、停止及聊天存储继续通过 RisuAI 原生流程；普通文本使用当前客户端 Markdown 渲染，原生脚本、触发器与宏函数保留 |
-| 模型连接 | 本地固定回复；Risu 当前主模型连接入口。后者会使用用户的模型配置 |
+| 模型连接 | 本地固定回复；Risu 当前主模型；独立生成支持 raw 顺序、覆盖、图片、注入、流式事件与取消；自定义 HTTP 连接支持 OpenAI 兼容协议、Claude 和 Gemini |
 
 已用两张复杂前端卡完成本地验收，覆盖导入、面板交互、世界书、正则、变量更新和原生消息回读。验收未调用模型 API；角色卡样本与验收资料由开发环境单独管理。
 
-真实模型请求、流式输出、群聊、任意 STscript 和完整 Tavern Helper / MVU / Zod 扩展组合尚未完成验收。卡片声明的远程脚本依赖会展示在预览中，解析成功并不代表这些依赖都能运行。请先用本地固定回复检查所需流程。
+远程真实模型请求、群聊、任意 STscript 和完整外部 MVU / Zod 扩展组合尚未完成验收。流式、工具和结构化响应使用本机固定 HTTP 服务验证。卡片声明的远程脚本依赖会展示在预览中；这些依赖需按具体组合验证。
 
 ## 已验资源与对照条件
 
@@ -52,15 +53,23 @@ README 的兼容清单对应下列原始文件 SHA-256，文件内容变化后�
 
 ## 提示词模板与前端助手
 
-2026-11-01 对照两个上游项目的文档、接口与本项目源码，当前均为部分适配。
+v0.4.0 按以下固定提交接入模板语义，并独立实现前端助手公开接口。上游源码发生变化后需要重新对照。
 
-| 项目 | 已实现 | 尚未接入 |
-| --- | --- | --- |
-| [ST-Prompt-Template](https://github.com/zonde306/ST-Prompt-Template/tree/d6f520d149aba146305b0b781ddd691d449c28d2) | 同步 EJS 条件、循环、输出；简单 `getvar/setvar`、`variables/user/char` 与 lodash；部分世界书和提示词处理 | 异步模板、`print`、完整 helper 与变量作用域、世界书 include、`[GENERATE:*]` / `[RENDER:*]` / `@INJECT` / `[InitialVariables]`、完整消息渲染及 `EjsTemplate` 环境 |
-| [JS-Slash-Runner / Tavern Helper](https://github.com/N0VI028/JS-Slash-Runner/tree/5cbd089f1217d00e1f6851f50bf451223860a9c2) | 消息 HTML iframe；部分聊天编辑、变量、事件、localStorage 与 MVU；简单生成入口 | 完整 `TavernHelper` 命名空间与脚本依赖、聊天增删、完整世界书/预设/角色/正则/Slash 接口、原生事件生命周期、raw 提示词、生成覆盖与注入、流式和取消接口 |
+| 项目 | 已验证内容 |
+| --- | --- |
+| [ST-Prompt-Template `d6f520d`](https://github.com/zonde306/ST-Prompt-Template/tree/d6f520d149aba146305b0b781ddd691d449c28d2) | 异步 EJS、`print`、自定义分隔符、四层变量作用域、初始变量、世界书 include、helper/define/Faker；扫描前 loader、`[GENERATE:*]`、启用后的 `@INJECT`、`[RENDER:*]`、多模态文本；`EjsTemplate` 上下文与编译函数 |
+| [JS-Slash-Runner / Tavern Helper `5cbd089`](https://github.com/N0VI028/JS-Slash-Runner/tree/5cbd089f1217d00e1f6851f50bf451223860a9c2) | `TavernHelper` 命名空间、共享运行库和脚本库；聊天增删、旋转、候选变量；实名世界书绑定、CRUD、角色、玩家角色、预设、正则与文件往返；Slash 管道、变量、闭包、聊天及资源指令；原生消息和生成事件；raw 顺序、历史/字段覆盖、图片、注入、流式、工具、schema 与取消 |
 
-模板处理见 `packages/core/session.mjs` 和 `packages/core/operation.mjs`：目前只调用同步 `ejs.render`；输出阶段可以执行变量副作用，但返回正文仍可能保留原始 EJS 标签。前端接口见 `packages/core/frontend-api.mjs` 与 `packages/runtime/page.mjs`：`generateRaw` 当前复用普通生成路径，不处理上游的 `ordered_prompts`、`overrides`、`injects` 等配置。世界书读取也尚未完整匹配上游的名称和绑定语义。
+模板的原版 helper 抽取记录见 `packages/core/template-primitives.mjs`。宿主阶段接线位于 `packages/core/operation.mjs` 和 `packages/core/prompt.mjs`，浏览器执行环境位于 `packages/core/frontend-template.mjs`。永久 EJS 输出会替换保存的正文，后续重绘使用 dry run，避免再次执行变量副作用。生成、预览和取消仍按各自提交边界处理。
 
-现有测试与两张大型卡覆盖的是已实现子集；尚未进行这两个上游项目的完整一致性验收。
+前端资源写入通过 `packages/runtime/tavern-host.mjs` 保存到现有数据库。旧的角色内置世界书、附加绑定和全局正则按幂等步骤迁移，保留原卡字段与原始资源；中断后重新启动会继续处理。普通读取不重复改写响应式绑定。结构编辑只物化一次开场白，候选变量按候选页独立保存。
+
+`generateRaw` 使用调用者给出的提示词顺序；`generate` 使用当前或指定预设。临时输入与覆盖历史只作用于本次请求，模板 helper 始终读取真实聊天；独立生成返回结果后提交模板副作用。生成期间聊天被编辑时，保留结果和冲突记录，避免覆盖后来的修改。`should_silence` 控制是否绑定原生停止按钮；也可以通过生成 ID 或 `stopAllGeneration` 取消。
+
+HTTP 测试覆盖 OpenAI 兼容协议、Claude 和 Gemini 的 UTF-8 分块、流式事件、工具参数、结构化响应、推理签名、失败和真实连接取消。Risu 插件模型及其他原生传输继续走宿主连接；具体工具与结构化能力由对应提供方决定。SillyTavern 服务端的 Git 扩展安装、管理权限和其他扩展动态注册的 Slash 指令需要相应后端，不能由这些本地接口替代。
+
+实机验收通过原生界面导入临时卡，点击资源读写、异步模板、raw、流式与停止按钮，并核对本机服务收到的消息顺序；原生输入框的固定回复模板也已验证。青空理与 ArtificRealm 的面板、页签和角色切换复验通过。五个原角色的聊天正文、消息变量与候选数据，以及模型、采样值和插件参数按基线保持一致。
+
+本次 132 项 Node 回归和 10 项加载器回归通过。测试与实机资料保留在开发环境，发行清单按现有规则仅包含项目源码和加载器。
 
 接入失败时查看项目 `data/runtime/launcher.log`，DLL 启动失败时查看 EXE 旁的 `RisuRuntimeLoader.log`。保留原始记录后，可以重复安装、重新启动客户端重试。

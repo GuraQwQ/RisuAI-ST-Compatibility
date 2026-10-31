@@ -24,7 +24,7 @@ export function applyFrontendMessageCommit(chat, operation) {
   Object.assign(item, fields);
   if (after.role !== undefined) item.role = after.role === 'assistant' ? 'char' : 'user';
   if (after.message !== undefined) item.data = after.message;
-  if (after.is_hidden !== before?.is_hidden) item.disabled = after.is_hidden ? true : false;
+  if (after.is_hidden !== undefined && after.is_hidden !== before?.is_hidden) item.disabled = !!after.is_hidden;
   if (after.swipes !== undefined || after.swipes_data !== undefined || after.swipes_info !== undefined) {
     item.stCompatibility ??= {};
     item.stCompatibility.swipes = {

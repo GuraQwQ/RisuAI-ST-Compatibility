@@ -1,6 +1,6 @@
 {
   "name": "risuai-st-compatibility",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -16,11 +16,14 @@
     "package:release": "node scripts/package-release.mjs"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.6.0",
     "acorn": "^8.15.0",
     "chevrotain": "^11.2.0",
     "droll": "^0.2.1",
     "ejs": "^3.1.10",
     "fflate": "^0.8.3",
+    "jquery": "^3.7.1",
+    "jquery-ui": "^1.14.1",
     "json5": "^2.2.3",
     "jsonrepair": "^3.15.0",
     "klona": "^2.0.6",
@@ -28,7 +31,12 @@
     "mathjs": "^12.4.3",
     "moment": "^2.31.0",
     "seedrandom": "^3.0.5",
-    "yaml": "^2.9.1"
+    "showdown": "2.1",
+    "toastr": "2.1",
+    "vue": "3.5",
+    "vue-router": "^4.6.4",
+    "yaml": "^2.9.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "vite": "^8.0.3"

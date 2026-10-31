@@ -7,6 +7,7 @@ import { parseAsset } from '../core/assets.mjs';
 import { installCardMigration } from '../core/migration.mjs';
 import { attachNativeModule } from './attach.mjs';
 import { evaluateInWorker } from './evaluate.mjs';
+import { requestCustomGeneration } from '../core/generation-provider.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -68,6 +69,24 @@ export async function startRuntimeService(cdp, { projectRoot = root, log = conso
     });
   };
   const handle = async (request, id, signal) => {
+    if (request.method === 'customGenerate') {
+      const { config, settings } = request.payload;
+      const messages = request.payload.messages.map(message => {
+        const { multimodals, ...value } = message;
+        return multimodals?.length ? { ...value, content: [
+          ...(typeof value.content === 'string' ? value.content ? [{ type: 'text', text: value.content }] : [] : value.content ?? []),
+          ...multimodals.filter(item => item.type === 'image').map(item => ({ type: 'image_url', image_url: { url: item.data } }))] } : value;
+      });
+      return requestCustomGeneration({ messages, config, settings, signal,
+        onProgress: progress => config.should_stream ? browser(`globalThis.__stCompatibilityRuntime?.generationProgress(${JSON.stringify(config.generation_id)},${JSON.stringify(progress)})`, id) : undefined });
+    }
+    if (request.method === 'modelList') {
+      const { apiurl, key } = request.payload;
+      const url = new URL(apiurl); url.pathname = url.pathname.replace(/\/(?:chat\/completions|models)\/?$/, '').replace(/\/$/, '') + '/models';
+      const response = await fetch(url, { headers: key ? { Authorization: `Bearer ${key}` } : {}, signal });
+      if (!response.ok) throw new Error(`模型列表请求失败：HTTP ${response.status}`);
+      const result = await response.json(); return (result.data ?? result.models ?? []).map(item => item.id ?? item.name);
+    }
     if (request.method === 'preview') {
       const bytes = request.payload.base64 ? bytesFromBase64(request.payload.base64) : new TextEncoder().encode(request.payload.json);
       return (await parseCard(bytes, request.payload.filename)).report;

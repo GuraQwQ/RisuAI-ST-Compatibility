@@ -808,6 +808,8 @@ async function getSortedEntries() {
         // Chat lore always goes first, then persona lore, then the rest
         entries = [...chatLore.sort(sortFn), ...personaLore.sort(sortFn), ...entries];
 
+        if (env.prepareEntries) entries = await env.prepareEntries(entries);
+
         // Calculate hash and parse decorators. Split maps to preserve old hashes.
         entries = entries.map((entry) => {
             const [decorators, content] = parseDecorators(entry.content || '');

@@ -4,7 +4,7 @@ import { createWorldEngine } from './vendor/world-info.mjs';
 /** 每次求值独立作用域，预览与取消丢弃副本，不写回聊天。 */
 export function createRuntime({ card, settings = {}, metadata = {}, user = 'User',
   globalRegex = [], presetRegex = [], books = {}, countTokens, substitute, random,
-  events = async () => {}, extensionPrompts = {}, trace = [] }) {
+  events = async () => {}, extensionPrompts = {}, trace = [], worldbookBindings }) {
   if (typeof countTokens !== 'function') throw new TypeError('必须提供宿主 tokenizer');
   const data = card.data ?? card;
   const localMetadata = structuredClone(metadata);
@@ -14,10 +14,11 @@ export function createRuntime({ card, settings = {}, metadata = {}, user = 'User
     String(value).replace(/{{(char|user)}}/gi, (_, name) => transform(
       name.toLowerCase() === 'char' ? overrides.name2Override ?? data.name : user)));
   const extension_settings = { disabledExtensions: [], note: { allowWIScan: false } };
+  const synchronousSubstitute = substituteParams.sync ?? substituteParams;
   const regex = createRegexEngine({
-    getRegexScripts: () => [...globalRegex, ...presetRegex, ...(data.extensions?.regex_scripts ?? [])],
-    substituteParams,
-    substituteParamsExtended: substituteParams,
+    getRegexScripts: () => [...(substituteParams.templates?.getRegexes() ?? globalRegex), ...presetRegex, ...(data.extensions?.regex_scripts ?? [])],
+    substituteParams: synchronousSubstitute,
+    substituteParamsExtended: synchronousSubstitute,
     extension_settings, console,
   });
   let characterEntries = [];
@@ -36,7 +37,8 @@ export function createRuntime({ card, settings = {}, metadata = {}, user = 'User
     getPersonaLore: async () => books.persona ?? [],
     eventSource: { emit: events },
     event_types: { WORLDINFO_ENTRIES_LOADED: 'worldinfo_entries_loaded', WORLDINFO_SCAN_DONE: 'worldinfo_scan_done' },
-    substituteParams, ...regex,
+    substituteParams: synchronousSubstitute, ...regex,
+    prepareEntries: substituteParams.templates?.prepareWorldEntries,
     getCharaFilename: () => data.name,
     getTagKeyForEntity: () => data.name,
     this_chid: 0, shouldWIAddPrompt: false, NOTE_MODULE_NAME: '2_floating_prompt', metadata_keys: {},
@@ -45,7 +47,7 @@ export function createRuntime({ card, settings = {}, metadata = {}, user = 'User
     GENERATION_TYPE_TRIGGERS: ['normal', 'continue', 'swipe', 'regenerate', 'quiet', 'impersonate'],
     extension_prompt_roles: { SYSTEM: 0, USER: 1, ASSISTANT: 2 },
   });
-  if (data.character_book) characterEntries = Object.values(world.convertCharacterBook(structuredClone(data.character_book)).entries)
+  if (data.character_book && worldbookBindings === undefined) characterEntries = Object.values(world.convertCharacterBook(structuredClone(data.character_book)).entries)
     .map(entry => ({ ...entry, world: `card:${data.name}` }));
-  return { ...regex, ...world, metadata: localMetadata, trace, substituteParams };
+  return { ...regex, ...world, metadata: localMetadata, trace, substituteParams: synchronousSubstitute };
 }

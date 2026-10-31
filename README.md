@@ -61,8 +61,12 @@ npm run install:runtime -- --target 'D:\Apps\RisuAI\RisuAI.exe'
 | 角色卡 | ArtificRealm v1.0.1 / ArtificRealm創世域 | 前端创建属性、HP 与点数更新、消息回读；17 条正则 |
 | 世界书 | 青空 理内置 `-SnowYuki` | 13 条，扫描命中及各位置输出与 ST 一致；独立导入与选用 |
 | 世界书 | ArtificRealm創世域内置书 | 121 条，扫描命中及各位置输出与 ST 一致；独立导入与选用 |
+| 模板扩展 | [ST-Prompt-Template](https://github.com/zonde306/ST-Prompt-Template/tree/d6f520d149aba146305b0b781ddd691d449c28d2)，固定提交 `d6f520d` | 异步 EJS、helper、变量作用域、世界书 include；扫描、生成、注入与渲染阶段；永久正文和重绘副作用 |
+| 前端助手接口 | [JS-Slash-Runner / Tavern Helper](https://github.com/N0VI028/JS-Slash-Runner/tree/5cbd089f1217d00e1f6851f50bf451223860a9c2)，固定提交 `5cbd089` | 聊天、世界书、角色、玩家角色、预设与正则读写；raw 提示词、覆盖、图片和注入；本机服务的流式、取消、工具与结构化响应 |
 
 三套预设与两张卡另做了输入、显示、提示词、编辑阶段的正则对照。完整文件指纹、对照条件与未验范围见 [兼容说明](docs/compatibility.md)。资源样本、测试文件和验收报告由开发环境单独保存。
+
+v0.4.0 已内置模板引擎和前端助手接口，消息面板及已启用的脚本库可直接调用 `TavernHelper`、`EjsTemplate` 和事件接口。资源修改保存到 RisuAI 数据库；独立生成不会把临时输入和覆盖历史追加到聊天。自定义连接支持 OpenAI 兼容协议、Claude 和 Gemini，未指定自定义连接时沿用 Risu 当前模型。
 
 ## 更新、恢复与数据
 
