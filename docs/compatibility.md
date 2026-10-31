@@ -44,8 +44,23 @@ README 的兼容清单对应下列原始文件 SHA-256，文件内容变化后�
 
 2026-10-30 已用官方 2026.10.292 Windows x64 安装包完成更新复验。现有 v0.3.0 运行层可直接接入；验证了 DLL 自动启动、两张大型卡的状态栏、Nemo 条目搜索与保存回读，以及原生聊天中的本地固定回复。更新前后的五个角色聊天、兼容配置、预设库、模型及采样参数核对一致。
 
+2026-11-01 再次核对官方发布，最新版本仍为 2026.10.292。重建并重复安装 v0.3.0 后，EXE 哈希保持一致，两个 DLL 自动加载；五个角色的聊天和兼容配置保持一致，Nemo 条目搜索与保存、本地固定回复和两张大型卡面板复验通过。Node 回归 78 项、加载器回归 10 项通过。
+
 插件设置入口使用官方 API v3；原生聊天接线还依赖客户端内部模块结构与调试接口。上游 [API v3 定义](https://github.com/kwaroran/Risuai/blob/main/src/ts/plugins/apiV3/risuai.d.ts) 明确说明，未列出的内部接口可能随时变化。
 
 因此，官方更新替换 EXE 后需要重新安装 DLL 入口；若聊天模块结构变化，还需更新本项目适配代码。重新安装入口通常不需要重编译 RisuAI，但不保证所有未来版本即装即用。当前没有验证浏览器版、移动端、macOS、Linux 或 Windows ARM64。
+
+## 提示词模板与前端助手
+
+2026-11-01 对照两个上游项目的文档、接口与本项目源码，当前均为部分适配。
+
+| 项目 | 已实现 | 尚未接入 |
+| --- | --- | --- |
+| [ST-Prompt-Template](https://github.com/zonde306/ST-Prompt-Template/tree/d6f520d149aba146305b0b781ddd691d449c28d2) | 同步 EJS 条件、循环、输出；简单 `getvar/setvar`、`variables/user/char` 与 lodash；部分世界书和提示词处理 | 异步模板、`print`、完整 helper 与变量作用域、世界书 include、`[GENERATE:*]` / `[RENDER:*]` / `@INJECT` / `[InitialVariables]`、完整消息渲染及 `EjsTemplate` 环境 |
+| [JS-Slash-Runner / Tavern Helper](https://github.com/N0VI028/JS-Slash-Runner/tree/5cbd089f1217d00e1f6851f50bf451223860a9c2) | 消息 HTML iframe；部分聊天编辑、变量、事件、localStorage 与 MVU；简单生成入口 | 完整 `TavernHelper` 命名空间与脚本依赖、聊天增删、完整世界书/预设/角色/正则/Slash 接口、原生事件生命周期、raw 提示词、生成覆盖与注入、流式和取消接口 |
+
+模板处理见 `packages/core/session.mjs` 和 `packages/core/operation.mjs`：目前只调用同步 `ejs.render`；输出阶段可以执行变量副作用，但返回正文仍可能保留原始 EJS 标签。前端接口见 `packages/core/frontend-api.mjs` 与 `packages/runtime/page.mjs`：`generateRaw` 当前复用普通生成路径，不处理上游的 `ordered_prompts`、`overrides`、`injects` 等配置。世界书读取也尚未完整匹配上游的名称和绑定语义。
+
+现有测试与两张大型卡覆盖的是已实现子集；尚未进行这两个上游项目的完整一致性验收。
 
 接入失败时查看项目 `data/runtime/launcher.log`，DLL 启动失败时查看 EXE 旁的 `RisuRuntimeLoader.log`。保留原始记录后，可以重复安装、重新启动客户端重试。
